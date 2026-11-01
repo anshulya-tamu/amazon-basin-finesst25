@@ -1,0 +1,495 @@
+<title>Amazon Desk Atlas</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,500;0,700;1,400;1,500&family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a hydrographic atlas — numbered plates down one column, maps full width, notes in a 3-column field-notes grid. */
+:root {
+  --paper: #F3F5F0; --panel: #E9EDE5; --ink: #1C2A2E; --ink-2: #4A595D; --ink-3: #6E7C81; --rule: #CAD2CA;
+  --land: #ECEEE7; --basin: #DDE6D4; --ocean: #D3E1E8; --lake: #BFD3DC; --border: #A9B1A6; --subbasin: #B9C6B0; --halo: #EEF1EA;
+  --w-white: #AA7323; --w-black: #843E21; --w-clear: #008878; --w-other: #8D9CA5;
+  --water-label: #2C5468; --relief: #85765F; --rain: #4A7894; --band: #C5CEC6; --median: #7E8B8F;
+  --link: #7A4F12;
+  --f-display: "Alegreya", "Iowan Old Style", Georgia, serif;
+  --f-body: "Alegreya Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #141A1C; --panel: #1B2326; --ink: #E2E8E4; --ink-2: #AAB7B4; --ink-3: #7F8D90; --rule: #2E393C;
+  --land: #1A2124; --basin: #1F2A26; --ocean: #12212A; --lake: #213640; --border: #3A4648; --subbasin: #33423A; --halo: #1C2427;
+  --w-white: #B88938; --w-black: #9F4E35; --w-clear: #159A90; --w-other: #5D6E77;
+  --water-label: #9CC2D4; --relief: #A29379; --rain: #6E9DB8; --band: #34403F; --median: #8C999C;
+  --link: #DDB36C; color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --paper: #141A1C; --panel: #1B2326; --ink: #E2E8E4; --ink-2: #AAB7B4; --ink-3: #7F8D90; --rule: #2E393C;
+  --land: #1A2124; --basin: #1F2A26; --ocean: #12212A; --lake: #213640; --border: #3A4648; --subbasin: #33423A; --halo: #1C2427;
+  --w-white: #B88938; --w-black: #9F4E35; --w-clear: #159A90; --w-other: #5D6E77;
+  --water-label: #9CC2D4; --relief: #A29379; --rain: #6E9DB8; --band: #34403F; --median: #8C999C;
+  --link: #DDB36C; color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.5; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 44px; }
+a { color: var(--link); text-underline-offset: 2px; }
+a:focus-visible, [tabindex]:focus-visible, summary:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; }
+p { margin: 0; }
+
+/* masthead */
+.mast { display: grid; gap: 10px; border-bottom: 2px solid var(--ink); padding-bottom: 18px; }
+.mast .eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.mast h1 { font-size: clamp(34px, 5vw, 54px); font-weight: 700; line-height: 1.02; letter-spacing: -.01em; }
+.mast h1 em { font-weight: 500; color: var(--w-white); }
+.mast .lede { max-width: 70ch; color: var(--ink-2); font-size: 17px; }
+.mast .meta { display: flex; flex-wrap: wrap; gap: 6px 22px; font-family: var(--f-mono); font-size: 12px; color: var(--ink-3); }
+
+/* plates */
+.plate { display: grid; gap: 14px; }
+.plate-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; border-bottom: 1px solid var(--rule); padding-bottom: 8px; }
+.plate-no { font-family: var(--f-mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+.plate-head h2 { font-size: clamp(22px, 2.6vw, 28px); font-weight: 700; }
+.plate-head p { flex-basis: 100%; color: var(--ink-2); max-width: 78ch; }
+.mapbox { overflow-x: auto; border: 1px solid var(--rule); background: var(--land); }
+.mapbox svg { display: block; width: 100%; height: auto; }
+.mapbox.wide svg { min-width: 900px; }
+.mapbox.basin svg { min-width: 640px; }
+.scroll-hint { display: none; font-size: 13px; color: var(--ink-3); }
+@media (max-width: 900px) { .scroll-hint { display: block; } }
+
+/* svg map styling */
+.map .ocean { fill: var(--ocean); }
+.map .land { fill: var(--land); }
+.map .basin { fill: var(--basin); }
+.map .lake { fill: var(--lake); }
+.map .border { fill: none; stroke: var(--border); stroke-width: .8; }
+.map .subbasin { fill: none; stroke: var(--subbasin); stroke-width: .7; }
+.map .basin-edge { fill: none; stroke: var(--ink-2); stroke-width: 1.3; }
+.map .equator { stroke: var(--ink-3); stroke-width: .7; }
+.map .riv { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.map .riv-white { stroke: var(--w-white); } .map .riv-black { stroke: var(--w-black); }
+.map .riv-clear { stroke: var(--w-clear); } .map .riv-other { stroke: var(--w-other); }
+.map .corridor { fill: none; stroke: var(--ink); stroke-width: 1.4; }
+.map .mk-town { fill: var(--ink); stroke: var(--halo); stroke-width: 1.5; }
+.map .mk-gauge { fill: var(--ink); stroke: var(--halo); stroke-width: 1.2; }
+.map .mk-met { fill: var(--paper); stroke: var(--ink); stroke-width: 1.4; }
+.map .mk-site { fill: none; stroke: var(--ink); stroke-width: 2; }
+.map text { paint-order: stroke; stroke: var(--halo); stroke-width: 3px; stroke-linejoin: round; }
+.map .lbl-river { font-family: var(--f-display); font-style: italic; font-size: 13.5px; fill: var(--water-label); }
+.map .lbl-river.lg { font-size: 15.5px; font-weight: 500; letter-spacing: .05em; }
+.map .lbl-town { font-family: var(--f-body); font-size: 12px; font-weight: 500; fill: var(--ink); }
+.map .lbl-country { font-family: var(--f-body); font-size: 11px; font-weight: 500; letter-spacing: .32em; fill: var(--ink-3); }
+.map .lbl-sea { font-family: var(--f-display); font-style: italic; font-size: 15px; letter-spacing: .08em; fill: var(--water-label); }
+.map .lbl-relief { font-family: var(--f-body); font-size: 11px; letter-spacing: .28em; fill: var(--relief); }
+.map .lbl-grid, .map .lbl-code { font-family: var(--f-mono); font-size: 9.5px; fill: var(--ink-2); }
+.map .lbl-corridor { font-family: var(--f-body); font-size: 12px; font-weight: 700; fill: var(--ink); }
+.map .lbl-lake { font-family: var(--f-display); font-style: italic; font-size: 12px; fill: var(--water-label); }
+.map .lbl-region { font-family: var(--f-body); font-size: 11px; letter-spacing: .14em; font-variant: small-caps; fill: var(--ink-2); }
+.map .lbl-region-sm { font-family: var(--f-display); font-style: italic; font-size: 11px; fill: var(--ink-3); }
+.map .lbl-note { font-family: var(--f-body); font-style: italic; font-size: 10.5px; fill: var(--ink-2); }
+.map .scale line, .map .flow line { stroke: var(--ink-2); stroke-width: 1.2; }
+.map .flow path { fill: var(--ink-2); }
+.map .scale text, .map .flow text { font-family: var(--f-mono); font-size: 9.5px; fill: var(--ink-2); }
+
+/* legends */
+.legend { display: flex; flex-wrap: wrap; gap: 10px 26px; font-size: 14px; color: var(--ink-2); }
+.legend .item { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.legend b { color: var(--ink); font-weight: 700; }
+.key-line { width: 26px; height: 4px; border-radius: 2px; flex: none; }
+.k-white { background: var(--w-white); } .k-black { background: var(--w-black); } .k-clear { background: var(--w-clear); } .k-other { background: var(--w-other); }
+.key-svg { flex: none; }
+.key-svg .g { fill: var(--ink); } .key-svg .m { fill: var(--paper); stroke: var(--ink); stroke-width: 1.4; }
+.key-svg .s { fill: none; stroke: var(--ink); stroke-width: 2; } .key-svg .l { fill: var(--lake); }
+
+/* downstream sequence */
+.seq { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0; border-top: 1px solid var(--rule); counter-reset: s; }
+.seq li { counter-increment: s; padding: 12px 14px 12px 0; border-bottom: 1px solid var(--rule); display: grid; grid-template-columns: 30px 1fr; gap: 2px 8px; min-width: 0; }
+.seq li::before { content: counter(s, decimal-leading-zero); font-family: var(--f-mono); font-size: 12px; color: var(--w-white); grid-row: span 2; padding-top: 3px; }
+.seq strong { font-family: var(--f-display); font-size: 17px; }
+.seq span { font-size: 14px; color: var(--ink-2); }
+.seq code { font-family: var(--f-mono); font-size: 12px; color: var(--ink); }
+
+/* charts */
+.charts { display: grid; grid-template-columns: 1.6fr 1fr; gap: 28px; }
+@media (max-width: 860px) { .charts { grid-template-columns: 1fr; } }
+.chart { display: grid; gap: 8px; min-width: 0; align-content: start; }
+.chart h3 { font-family: var(--f-body); font-size: 16px; font-weight: 700; }
+.chart .sub { font-size: 14px; color: var(--ink-2); }
+.chart .plot { position: relative; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart .grid line { stroke: var(--rule); stroke-width: 1; }
+.chart .axis text { font-family: var(--f-mono); font-size: 11px; fill: var(--ink-3); }
+.chart .band { fill: var(--band); opacity: .75; }
+.chart .med { fill: none; stroke: var(--median); stroke-width: 2; stroke-linejoin: round; }
+.chart .y23 { fill: none; stroke: var(--w-white); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart .dot { fill: var(--w-white); stroke: var(--paper); stroke-width: 2; }
+.chart .ann { font-family: var(--f-body); font-size: 12px; fill: var(--ink); }
+.chart .ann-sub { font-family: var(--f-body); font-size: 12px; fill: var(--ink-2); }
+.chart .lead { stroke: var(--ink-3); stroke-width: 1; }
+.chart .bar { fill: var(--rain); }
+.chart .bar.dim { opacity: .55; }
+.chart .cap { font-family: var(--f-mono); font-size: 11px; fill: var(--ink-2); }
+.chart .xhair { stroke: var(--ink-3); stroke-width: 1; }
+.chart .hit { fill: transparent; cursor: crosshair; }
+.chart .keyrow { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--ink-2); }
+.chart .keyrow i { display: inline-block; width: 18px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+.chart .keyrow i.box { height: 10px; border-radius: 2px; }
+.tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 7px 10px; font-size: 13px; line-height: 1.35; color: var(--ink); box-shadow: 0 4px 14px rgb(0 0 0 / .12); white-space: nowrap; font-variant-numeric: tabular-nums; z-index: 2; }
+.tip b { font-family: var(--f-mono); font-weight: 500; }
+.tip .muted { color: var(--ink-3); }
+details.data { font-size: 14px; color: var(--ink-2); }
+details.data summary { cursor: pointer; color: var(--link); }
+.tbl-wrap { overflow-x: auto; margin-top: 8px; }
+table { border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; width: 100%; }
+th, td { text-align: right; padding: 5px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { font-weight: 700; color: var(--ink); }
+
+/* calendar strip */
+.cal { display: grid; grid-template-columns: 170px repeat(12, minmax(0, 1fr)); gap: 0; font-size: 13px; border-top: 1px solid var(--rule); }
+.cal > div { padding: 7px 0; border-bottom: 1px solid var(--rule); }
+.cal .mh { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); text-align: center; }
+.cal .rl { color: var(--ink); font-weight: 500; padding-right: 10px; }
+.cal .span { margin: 2px 2px; padding: 3px 6px; border-radius: 4px; font-size: 12.5px; color: var(--ink); background: var(--panel); border-bottom: 1px solid var(--rule); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal .span.wet { background: color-mix(in srgb, var(--rain) 24%, var(--paper)); }
+.cal .span.dry { background: color-mix(in srgb, var(--w-white) 20%, var(--paper)); }
+.cal .span.hi { background: color-mix(in srgb, var(--rain) 24%, var(--paper)); }
+.cal .span.lo { background: color-mix(in srgb, var(--w-white) 20%, var(--paper)); }
+.cal .span.ev { background: color-mix(in srgb, var(--w-black) 22%, var(--paper)); }
+.calwrap { overflow-x: auto; }
+.calwrap .cal { min-width: 760px; }
+
+/* field notes */
+.notes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 30px 34px; }
+@media (max-width: 980px) { .notes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .notes { grid-template-columns: 1fr; } }
+.note { display: grid; gap: 10px; align-content: start; min-width: 0; }
+.note h3 { font-size: 20px; font-weight: 700; border-bottom: 1px solid var(--rule); padding-bottom: 6px; }
+.note p, .note li { font-size: 15px; color: var(--ink-2); }
+.note p strong, .note li strong { color: var(--ink); }
+.note ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.names { display: grid; gap: 0; }
+.names div { display: grid; grid-template-columns: 1fr; padding: 8px 0 8px 14px; border-left: 2px solid var(--w-white); position: relative; }
+.names div + div { margin-top: 0; }
+.names b { font-family: var(--f-display); font-size: 18px; color: var(--ink); }
+.names span { font-size: 14px; color: var(--ink-2); }
+.wt { display: grid; gap: 10px; }
+.wt div { display: grid; grid-template-columns: 14px 1fr; gap: 0 10px; align-items: start; }
+.wt i { width: 14px; height: 14px; border-radius: 50%; margin-top: 4px; }
+.wt b { color: var(--ink); }
+.wt p { grid-column: 2; font-size: 14.5px; }
+dl.terms { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; font-size: 14.5px; }
+dl.terms dt { font-family: var(--f-display); font-style: italic; font-size: 16px; color: var(--ink); }
+dl.terms dd { margin: 0; color: var(--ink-2); }
+.nums { width: 100%; }
+.nums td { text-align: left; white-space: normal; padding: 6px 8px 6px 0; vertical-align: top; }
+.nums td:first-child { width: 42%; }
+.nums td:nth-child(2) { font-family: var(--f-mono); font-size: 13px; color: var(--ink); white-space: nowrap; }
+.nums td small { display: block; color: var(--ink-3); font-size: 12px; }
+.links { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px 30px; margin: 0; padding: 0; list-style: none; }
+.links li { display: grid; gap: 2px; padding-bottom: 10px; border-bottom: 1px solid var(--rule); }
+.links a { font-family: var(--f-display); font-size: 18px; font-weight: 500; }
+.links span { font-size: 14px; color: var(--ink-2); }
+.foot { font-size: 13px; color: var(--ink-3); display: grid; gap: 6px; border-top: 2px solid var(--ink); padding-top: 14px; }
+.foot p { max-width: 110ch; }
+
+@page { size: letter portrait; margin: 0.45in; }
+@media print {
+  :root, :root[data-theme="dark"] { color-scheme: light; }
+  .wrap { padding-block: 0; gap: 24px; }
+  .plate { break-inside: avoid; }
+  .plate + .plate { break-before: page; }
+  .scroll-hint { display: none !important; }
+  .mapbox.wide svg, .mapbox.basin svg { min-width: 0; }
+  details.data { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="mast">
+    <div class="eyebrow">Desk reference · FINESST 80NSSC25K0481 · AGU26 prep</div>
+    <h1>Amazon Desk Atlas <em>for a river-warming study</em></h1>
+    <p class="lede">Where the rivers are, what they are called, when they rise and fall, and the words you will meet in the literature. Built from the same datasets the project uses: SWORD, CAMREX, HydroLAKES and the ANA gauge at Tabatinga.</p>
+    <div class="meta"><span>Prepared 1 Nov 2026</span><span>Maps: SWORD v17 · CAMREX · HydroLAKES v1.0 · Natural Earth</span><span>Gauge: ANA 10100000 Tabatinga</span></div>
+  </header>
+
+  <section class="plate" aria-labelledby="p1">
+    <div class="plate-head">
+      <span class="plate-no">Plate 1</span>
+      <h2 id="p1">The Amazon basin</h2>
+      <p>The basin drains more than 6.1 million km² east of the Andes. The main river is drawn in silt brown because it carries Andean sediment. Line weight follows SWORD channel width. Thin grey lines mark the major tributary basins.</p>
+    </div>
+    <div class="mapbox basin">{{MAP_A}}</div>
+    <p class="scroll-hint">Scroll the map sideways on small screens.</p>
+    <div class="legend" aria-label="Plate 1 legend">
+      <span class="item"><span class="key-line k-white"></span><span><b>White water</b> (águas brancas): muddy, Andean sediment</span></span>
+      <span class="item"><span class="key-line k-black"></span><span><b>Black water</b> (águas pretas): tea-coloured, dissolved organics</span></span>
+      <span class="item"><span class="key-line k-clear"></span><span><b>Clear water</b> (águas claras): drains old shield rock</span></span>
+      <span class="item"><span class="key-line k-other"></span><span><b>Other rivers</b>: not classified here</span></span>
+    </div>
+  </section>
+
+  <section class="plate" aria-labelledby="p2">
+    <div class="plate-head">
+      <span class="plate-no">Plate 2</span>
+      <h2 id="p2">Study corridor: Tabatinga to Manaus</h2>
+      <p>The Central Solimões, about 1,600 river-km from the Colombia–Peru border to the Negro confluence. Rivers are drawn at true width (1 px ≈ 1.1 km). Gauge triangles sit at the towns they are named after.</p>
+    </div>
+    <div class="mapbox wide">{{MAP_B}}</div>
+    <p class="scroll-hint">Scroll the map sideways on small screens.</p>
+    <div class="legend" aria-label="Plate 2 legend">
+      <span class="item"><svg class="key-svg" width="14" height="12" viewBox="0 0 14 12" aria-hidden="true"><path class="g" d="M7 11 L12 2 L2 2 Z"/></svg><span><b>ANA gauge</b> (stage and discharge), code where verified</span></span>
+      <span class="item"><svg class="key-svg" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><rect class="m" x="2" y="2" width="8" height="8"/></svg><span><b>INMET weather station</b>, WMO code</span></span>
+      <span class="item"><svg class="key-svg" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle class="s" cx="7" cy="7" r="4.5"/></svg><span><b>2023 in-situ temperature site</b> (Fleischmann et al. 2025)</span></span>
+      <span class="item"><svg class="key-svg" width="18" height="12" viewBox="0 0 18 12" aria-hidden="true"><rect class="l" x="1" y="2" width="16" height="8" rx="3"/></svg><span><b>Lakes and reservoirs</b> (HydroLAKES, ≥ 3 km²)</span></span>
+    </div>
+    <ol class="seq" aria-label="Going downstream">
+      <li><strong>Tabatinga</strong><span>Triple border with Leticia (Colombia) and Peru. The river is now the Solimões. Gauge <code>10100000</code>. The Javari joins near Benjamin Constant.</span></li>
+      <li><strong>Santo Antônio do Içá</strong><span>The Içá (Putumayo) enters from the north. Main-stem gauge.</span></li>
+      <li><strong>Fonte Boa</strong><span>After the Jutaí joins from the south. Main-stem gauge.</span></li>
+      <li><strong>Juruá and Japurá</strong><span>Two big white-water tributaries. The Japurá links through many channels across the Mamirauá várzea.</span></li>
+      <li><strong>Tefé</strong><span>Lake Tefé, a ria lake, reached about 39 °C in 2023. Mamirauá Institute. INMET <code>82317</code>.</span></li>
+      <li><strong>Coari</strong><span>Lake Coari, 642 km² in HydroLAKES, is another ria lake. Dolphins died here and at Tefé in 2023.</span></li>
+      <li><strong>Codajás to the Purus</strong><span>The Purus joins from the south above Manacapuru.</span></li>
+      <li><strong>Manacapuru</strong><span>Last main-stem gauge before Manaus, <code>14100000</code>. Mean discharge ≈ 102,000 m³/s.</span></li>
+      <li><strong>Manaus</strong><span>The Negro meets the Solimões (Meeting of the Waters). Below here the river is called the Amazonas. The Madeira joins downstream.</span></li>
+    </ol>
+  </section>
+
+  <section class="plate" aria-labelledby="p3">
+    <div class="plate-head">
+      <span class="plate-no">Plate 3</span>
+      <h2 id="p3">The hydrological year</h2>
+      <p>The river at Tabatinga peaks in May and bottoms out in September. Rain at Manaus is lowest from June to November. In 2023 the low came late and deep: the second-lowest October since 1995 and the third-lowest annual minimum, after 2010 and 2005. The all-time record lows were downstream, at Manaus.</p>
+    </div>
+    <div class="charts">
+      <figure class="chart" id="hydro" style="margin:0">
+        <h3>Solimões discharge at Tabatinga, m³/s</h3>
+        <p class="sub">2023 against the 1995–2022 record (ANA gauge 10100000). Hover or use the arrow keys for daily values.</p>
+        <div class="keyrow"><span><i style="background:var(--w-white)"></i>2023</span><span><i style="background:var(--median)"></i>Median, 1995–2022</span><span><i class="box" style="background:var(--band)"></i>10th–90th percentile</span></div>
+        <div class="plot" tabindex="0" aria-label="Tabatinga discharge chart. Use left and right arrow keys to move through days."></div>
+        <details class="data"><summary>Show monthly table</summary><div class="tbl-wrap" id="hydro-table"></div></details>
+      </figure>
+      <figure class="chart" id="rain" style="margin:0">
+        <h3>Rainfall at Manaus, mm per month</h3>
+        <p class="sub">Climatology from the project file manaus-brazil-climate-data.csv. Annual total 2,323 mm.</p>
+        <div class="plot"></div>
+        <details class="data"><summary>Show table</summary><div class="tbl-wrap" id="rain-table"></div></details>
+      </figure>
+    </div>
+    <div class="calwrap" role="region" aria-label="Season calendar">
+      <div class="cal">
+        <div class="rl"></div><div class="mh">J</div><div class="mh">F</div><div class="mh">M</div><div class="mh">A</div><div class="mh">M</div><div class="mh">J</div><div class="mh">J</div><div class="mh">A</div><div class="mh">S</div><div class="mh">O</div><div class="mh">N</div><div class="mh">D</div>
+        <div class="rl">Rain, central Amazon</div><div style="grid-column: span 5"><div class="span wet">Wet season</div></div><div style="grid-column: span 6"><div class="span dry">Dry season (driest Aug)</div></div><div><div class="span wet">Wet</div></div>
+        <div class="rl">Solimões at Tabatinga</div><div style="grid-column: span 3"><div class="span hi">Rising</div></div><div style="grid-column: span 3"><div class="span hi">High (peak May)</div></div><div style="grid-column: span 2"><div class="span lo">Falling</div></div><div style="grid-column: span 2"><div class="span lo">Low (Sep–Oct)</div></div><div style="grid-column: span 2"><div class="span hi">Rising</div></div>
+        <div class="rl">Water level at Manaus, typical</div><div style="grid-column: span 5"><div class="span hi">Enchente (rising)</div></div><div style="grid-column: span 2"><div class="span hi">Cheia (high, peak ~Jun)</div></div><div style="grid-column: span 2"><div class="span lo">Vazante (falling)</div></div><div style="grid-column: span 2"><div class="span lo">Seca (low)</div></div><div><div class="span hi">Rising</div></div>
+        <div class="rl">2023 drought</div><div style="grid-column: span 8"></div><div style="grid-column: span 3"><div class="span ev">Record lows, hot lakes</div></div><div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="plate" aria-labelledby="p4">
+    <div class="plate-head">
+      <span class="plate-no">Plate 4</span>
+      <h2 id="p4">Field notes</h2>
+    </div>
+    <div class="notes">
+      <div class="note">
+        <h3>One river, several names</h3>
+        <div class="names">
+          <div><b>Marañón + Ucayali</b><span>Andean headwaters in Peru. They join near Nauta.</span></div>
+          <div><b>Amazonas (Peru)</b><span>Past Iquitos to the Colombia–Brazil border.</span></div>
+          <div><b>Solimões</b><span>The Brazilian name from Tabatinga to Manaus. This is your corridor.</span></div>
+          <div><b>Amazonas (Brazil)</b><span>Below the Negro confluence at Manaus, to the Atlantic near Macapá.</span></div>
+        </div>
+      </div>
+      <div class="note">
+        <h3>Three kinds of water</h3>
+        <div class="wt">
+          <div><i class="k-white"></i><b>White water</b><p>Café-com-leite colour from Andean sediment. Solimões, Madeira, Purus, Juruá, Japurá, Içá. Turbid, so sunlight is absorbed near the surface, but fast flow keeps the column mixed.</p></div>
+          <div><i class="k-black"></i><b>Black water</b><p>Tea-coloured from dissolved organic carbon, acidic, little sediment. Rio Negro. Dark water traps heat in a thin, warm surface layer.</p></div>
+          <div><i class="k-clear"></i><b>Clear water</b><p>Transparent and green, draining the old Brazilian and Guiana shields. Tapajós, Xingu, Trombetas.</p></div>
+        </div>
+      </div>
+      <div class="note">
+        <h3>Terms you will meet</h3>
+        <dl class="terms">
+          <dt>várzea</dt><dd>Seasonally flooded floodplain of white-water rivers</dd>
+          <dt>igapó</dt><dd>Flooded forest along black- and clear-water rivers</dd>
+          <dt>terra firme</dt><dd>Upland forest that never floods</dd>
+          <dt>paraná</dt><dd>Side channel of a large river</dd>
+          <dt>furo</dt><dd>Channel linking a river to a lake or another river</dd>
+          <dt>ria lake</dt><dd>Drowned tributary mouth widened into a lake (Tefé, Coari)</dd>
+          <dt>flood pulse</dt><dd>The single, predictable annual rise and fall</dd>
+          <dt>cota</dt><dd>River stage, in cm on an ANA gauge</dd>
+          <dt>vazão</dt><dd>Discharge, m³/s</dd>
+          <dt>resumo de descarga</dt><dd>ADCP measurement summary: width, area, depth, velocity</dd>
+        </dl>
+      </div>
+      <div class="note">
+        <h3>Key numbers</h3>
+        <table class="nums">
+          <tr><td>Basin area</td><td>&gt; 6.1 M km²</td></tr>
+          <tr><td>Discharge at the mouth</td><td>≈ 210,000 m³/s<small>CAMREX documentation</small></td></tr>
+          <tr><td>Solimões, Manacapuru mean</td><td>102,458 m³/s<small>1973–2012 · Johannsson et al. 2026</small></td></tr>
+          <tr><td>Rio Negro mean</td><td>≈ 28,000 m³/s<small>Johannsson et al. 2026</small></td></tr>
+          <tr><td>Solimões, Tabatinga mean</td><td>{{TAB_MEAN}} m³/s<small>1995–2022 · ANA 10100000</small></td></tr>
+          <tr><td>River channels vs lakes</td><td>≈ 70,000 vs 26,000 km²<small>Your FINESST proposal (SWORD, HydroLAKES)</small></td></tr>
+          <tr><td>Rain at Manaus</td><td>2,323 mm/yr<small>Driest month August, 68 mm</small></td></tr>
+          <tr><td>Dry-season velocity</td><td>0.5–1.0 m/s<small>Solimões · Johannsson et al. 2026</small></td></tr>
+        </table>
+      </div>
+      <div class="note">
+        <h3>The 2023 and 2024 droughts</h3>
+        <ul>
+          <li><strong>Cause:</strong> El Niño plus an unusually warm tropical North Atlantic.</li>
+          <li><strong>Air:</strong> anomalies of +1.8, +2.2 and +2.7 °C in Aug, Sep and Oct 2023.</li>
+          <li><strong>Tabatinga:</strong> about {{MIN23}} m³/s on 15 Oct 2023, {{PCT23}}% below the median for that date. Low, but 2010 and 2005 were lower here.</li>
+          <li><strong>Manaus:</strong> lowest Rio Negro level on record in October 2023.</li>
+          <li><strong>ADCP, 20 Sep 2023:</strong> 13,309 m³/s, mean depth 13.8 m, velocity 0.98 m/s.</li>
+          <li><strong>Water:</strong> shallow lakes passed 37 °C (one reached 41 °C). The Solimões main stem stayed at 30–32 °C.</li>
+          <li><strong>2024:</strong> the drought returned and broke low-water records again at several gauges.</li>
+        </ul>
+      </div>
+      <div class="note">
+        <h3>Who measures what</h3>
+        <ul>
+          <li><strong>ANA:</strong> national water agency. Stage, discharge and ADCP data via HidroWeb.</li>
+          <li><strong>SGB (formerly CPRM):</strong> runs much of the gauge network for ANA.</li>
+          <li><strong>INMET:</strong> weather stations. Benjamin Constant 82410, Tefé 82317, Manaus 82331.</li>
+          <li><strong>INPA, Manaus:</strong> aquatic biology and field temperatures (Val lab).</li>
+          <li><strong>Mamirauá Institute, Tefé:</strong> lake and várzea monitoring (Fleischmann).</li>
+          <li><strong>SO-HYBAM:</strong> long-term discharge, sediment and chemistry observatory.</li>
+          <li><strong>IPH-UFRGS, Porto Alegre:</strong> home of the MGB-IPH model.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="plate" aria-labelledby="p5">
+    <div class="plate-head">
+      <span class="plate-no">Plate 5</span>
+      <h2 id="p5">More maps and reading</h2>
+    </div>
+    <ul class="links">
+      <li><a href="https://doi.org/10.1029/2020RG000728" target="_blank" rel="noopener">Amazon Hydrology From Space</a><span>Fassoni-Andrade et al. 2021, Reviews of Geophysics. The best single overview, full of maps.</span></li>
+      <li><a href="https://www.snirh.gov.br/hidroweb/" target="_blank" rel="noopener">ANA HidroWeb</a><span>Interactive map of every Brazilian gauge, with stage, discharge and ADCP downloads.</span></li>
+      <li><a href="https://hybam.obs-mip.fr/" target="_blank" rel="noopener">SO-HYBAM observatory</a><span>Station map and long records for Tabatinga, Manacapuru and Óbidos.</span></li>
+      <li><a href="https://www.raisg.org/en/" target="_blank" rel="noopener">RAISG Amazonia maps</a><span>Protected areas, Indigenous territories and deforestation across all nine countries.</span></li>
+      <li><a href="https://worldview.earthdata.nasa.gov/" target="_blank" rel="noopener">NASA Worldview</a><span>Daily satellite imagery. Search “Manaus” to see the Meeting of the Waters.</span></li>
+      <li><a href="https://www.climate.gov/news-features/event-tracker/drought-parches-central-amazon-october-2023" target="_blank" rel="noopener">Drought parches the central Amazon</a><span>NOAA Climate.gov, October 2023. Maps and images of the drought.</span></li>
+      <li><a href="https://www.nature.com/articles/s41598-024-58782-5" target="_blank" rel="noopener">The new record of drought and warmth in the Amazon in 2023</a><span>Scientific Reports, 2024. The climate drivers.</span></li>
+      <li><a href="https://www.science.org/doi/10.1126/science.adr4029" target="_blank" rel="noopener">Extreme warming of Amazon waters</a><span>Fleischmann et al. 2025, Science. Lake temperatures in 2023.</span></li>
+      <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC13122579/" target="_blank" rel="noopener">Amazonian drought of 2023: conditions for fishes</a><span>Johannsson et al. 2026, J. Fish Biology. Main-stem temperatures.</span></li>
+    </ul>
+  </section>
+
+  <footer class="foot">
+    <p>Water types are assigned to the main channel of each large tributary basin (CAMREX sub-basins), so small tributaries stay grey. Classification is simplified: Branco and Guaporé are left unclassified, and the Javari, Jutaí, Tefé and Coari are not typed here. Gauge and town positions are approximate. Tabatinga 2023 discharge is provisional ANA data (consistency level 1). In-situ site coordinates are from Fleischmann et al. (2025), table S1.</p>
+    <p>Basin and sub-basin outlines: CAMREX (ORNL DAAC). Rivers: SWORD v17. Lakes: HydroLAKES v1.0. Countries: Natural Earth 1:50m. Drought air-temperature anomalies: Scientific Reports (2024). Lake temperatures: Fleischmann et al. (2025). Main-stem temperatures, Manacapuru and Negro discharge: Johannsson et al. (2026).</p>
+  </footer>
+</div>
+
+<script>
+const HYD = {{HYDRO}};
+const RAIN = [288, 289, 308, 310, 245, 122, 92, 68, 88, 122, 174, 217];
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MSTART = [1,32,60,91,121,152,182,213,244,274,305,335];
+const NS = "http://www.w3.org/2000/svg";
+const fmt = n => Math.round(n).toLocaleString("en-US");
+const el = (tag, attrs = {}, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+const doyDate = d => { const t = new Date(Date.UTC(2023, 0, d)); return t.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }); };
+
+(function hydro() {
+  const root = document.querySelector("#hydro .plot");
+  const W = 680, H = 300, m = { l: 52, r: 16, t: 16, b: 30 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b, ymax = 70000;
+  const x = d => m.l + (d - 1) / 364 * iw, y = v => m.t + ih - v / ymax * ih;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Daily discharge at Tabatinga: 2023 compared with 1995 to 2022" }, root);
+  const g = el("g", { class: "grid" }, svg), ax = el("g", { class: "axis" }, svg);
+  for (const v of [0, 20000, 40000, 60000]) {
+    el("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v) }, g);
+    el("text", { x: m.l - 8, y: y(v) + 4, "text-anchor": "end" }, ax).textContent = v ? (v / 1000) + "K" : "0";
+  }
+  MSTART.forEach((d, i) => { el("text", { x: x(d + 14), y: H - 8, "text-anchor": "middle" }, ax).textContent = MON[i]; });
+  const pts = (xs, ys) => xs.map((d, i) => `${x(d).toFixed(1)},${y(ys[i]).toFixed(1)}`).join(" ");
+  el("polygon", { class: "band", points: pts(HYD.doy, HYD.p90) + " " + pts([...HYD.doy].reverse(), [...HYD.p10].reverse()) }, svg);
+  el("polyline", { class: "med", points: pts(HYD.doy, HYD.med) }, svg);
+  el("polyline", { class: "y23", points: pts(HYD.y23_doy, HYD.y23) }, svg);
+  // annotate the 2023 minimum
+  let mi = 0; HYD.y23.forEach((v, i) => { if (v < HYD.y23[mi]) mi = i; });
+  const md = HYD.y23_doy[mi], mv = HYD.y23[mi];
+  el("circle", { class: "dot", cx: x(md), cy: y(mv), r: 4.5 }, svg);
+  el("text", { class: "ann", x: x(md) - 12, y: y(mv) + 16, "text-anchor": "end" }, svg).textContent = `${doyDate(md)} 2023: ${fmt(mv)} m³/s`;
+  el("text", { class: "ann-sub", x: x(md) - 12, y: y(mv) + 30, "text-anchor": "end" }, svg).textContent = `usual for that date: ${fmt(HYD.med[md - 1])}`;
+  // hover + keyboard layer
+  const xh = el("line", { class: "xhair", y1: m.t, y2: m.t + ih, visibility: "hidden" }, svg);
+  const hd = el("circle", { class: "dot", r: 4.5, visibility: "hidden" }, svg);
+  const hit = el("rect", { class: "hit", x: m.l, y: m.t, width: iw, height: ih }, svg);
+  const tip = document.createElement("div"); tip.className = "tip"; tip.hidden = true; root.appendChild(tip);
+  const by23 = new Map(HYD.y23_doy.map((d, i) => [d, HYD.y23[i]]));
+  let cur = md;
+  function show(d) {
+    d = Math.max(1, Math.min(365, d)); cur = d;
+    const v = by23.get(d), i = d - 1;
+    xh.setAttribute("x1", x(d)); xh.setAttribute("x2", x(d)); xh.setAttribute("visibility", "visible");
+    if (v != null) { hd.setAttribute("cx", x(d)); hd.setAttribute("cy", y(v)); hd.setAttribute("visibility", "visible"); } else hd.setAttribute("visibility", "hidden");
+    tip.innerHTML = `<div class="muted">${doyDate(d)}</div><div>2023 <b>${v != null ? fmt(v) : "–"}</b></div><div>Median <b>${fmt(HYD.med[i])}</b></div><div class="muted">Typical ${fmt(HYD.p10[i])}–${fmt(HYD.p90[i])}</div>`;
+    tip.hidden = false;
+    const r = svg.getBoundingClientRect(), k = r.width / W, px = x(d) * k;
+    const tw = tip.offsetWidth;
+    tip.style.left = (px + 12 + tw > r.width ? px - tw - 12 : px + 12) + "px";
+    tip.style.top = (m.t * k + 4) + "px";
+  }
+  const hide = () => { tip.hidden = true; xh.setAttribute("visibility", "hidden"); hd.setAttribute("visibility", "hidden"); };
+  hit.addEventListener("pointermove", e => { const r = svg.getBoundingClientRect(); const sx = (e.clientX - r.left) / r.width * W; show(Math.round((sx - m.l) / iw * 364 + 1)); });
+  hit.addEventListener("pointerleave", hide);
+  root.addEventListener("focus", () => show(cur));
+  root.addEventListener("blur", hide);
+  root.addEventListener("keydown", e => {
+    if (e.key === "ArrowRight") { show(cur + (e.shiftKey ? 30 : 1)); e.preventDefault(); }
+    if (e.key === "ArrowLeft") { show(cur - (e.shiftKey ? 30 : 1)); e.preventDefault(); }
+  });
+  // monthly table
+  const rows = MON.map((mn, i) => {
+    const a = MSTART[i], b = i < 11 ? MSTART[i + 1] - 1 : 365;
+    const avg = arr => { let s = 0, n = 0; for (let d = a; d <= b; d++) { const v = arr(d); if (v != null) { s += v; n++; } } return n ? s / n : null; };
+    return [mn, avg(d => HYD.med[d - 1]), avg(d => HYD.p10[d - 1]), avg(d => HYD.p90[d - 1]), avg(d => by23.get(d))];
+  });
+  document.getElementById("hydro-table").innerHTML = `<table><thead><tr><th>Month</th><th>Median</th><th>10th pct</th><th>90th pct</th><th>2023</th></tr></thead><tbody>${rows.map(r => `<tr><td>${r[0]}</td>${r.slice(1).map(v => `<td>${v == null ? "–" : fmt(v)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+})();
+
+(function rain() {
+  const root = document.querySelector("#rain .plot");
+  const W = 400, H = 300, m = { l: 40, r: 8, t: 22, b: 30 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b, ymax = 350, bw = Math.min(20, iw / 12 - 8);
+  const y = v => m.t + ih - v / ymax * ih, cx = i => m.l + (i + .5) * iw / 12;
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Monthly rainfall at Manaus" }, root);
+  const g = el("g", { class: "grid" }, svg), ax = el("g", { class: "axis" }, svg);
+  for (const v of [0, 100, 200, 300]) {
+    el("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v) }, g);
+    el("text", { x: m.l - 7, y: y(v) + 4, "text-anchor": "end" }, ax).textContent = v;
+  }
+  const tip = document.createElement("div"); tip.className = "tip"; tip.hidden = true; root.appendChild(tip);
+  RAIN.forEach((v, i) => {
+    const x0 = cx(i) - bw / 2, top = y(v), base = y(0), r = 4;
+    const d = `M${x0},${base} L${x0},${top + r} Q${x0},${top} ${x0 + r},${top} L${x0 + bw - r},${top} Q${x0 + bw},${top} ${x0 + bw},${top + r} L${x0 + bw},${base} Z`;
+    el("path", { class: "bar" + (i >= 5 && i <= 10 ? " dim" : ""), d }, svg);
+    el("text", { x: cx(i), y: H - 8, "text-anchor": "middle" }, ax).textContent = MON[i][0];
+    if (v === Math.max(...RAIN) || v === Math.min(...RAIN)) el("text", { class: "cap", x: cx(i), y: top - 6, "text-anchor": "middle" }, svg).textContent = v;
+    const hit = el("rect", { class: "hit", x: cx(i) - iw / 24, y: m.t, width: iw / 12, height: ih }, svg);
+    hit.addEventListener("pointerenter", () => {
+      tip.innerHTML = `<div class="muted">${MON[i]}</div><div><b>${v}</b> mm</div>`; tip.hidden = false;
+      const rr = svg.getBoundingClientRect(), k = rr.width / W, tw = tip.offsetWidth, px = cx(i) * k;
+      tip.style.left = Math.max(0, Math.min(rr.width - tw, px - tw / 2)) + "px"; tip.style.top = Math.max(0, (top * k) - 54) + "px";
+    });
+    hit.addEventListener("pointerleave", () => { tip.hidden = true; });
+  });
+  el("text", { class: "ann-sub", x: cx(8), y: m.t + 12, "text-anchor": "middle" }, svg).textContent = "dry season, Jun–Nov";
+  document.getElementById("rain-table").innerHTML = `<table><thead><tr>${MON.map(mn => `<th>${mn}</th>`).join("")}</tr></thead><tbody><tr>${RAIN.map(v => `<td>${v}</td>`).join("")}</tr></tbody></table>`;
+})();
+</script>

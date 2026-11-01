@@ -1,0 +1,48 @@
+# --- Google Drive document archive: proposals, admin, literature, old data ---
+# Lives on Drive only. Never commit: it holds budgets, support statements and an
+# old notebook with a hard-coded API key.
+docs/
+
+# --- Data and outputs (downloaded on the server into $FINESST_DATA_ROOT) ---
+data/*
+!data/README.md
+outputs/
+tools/desk_atlas/build/
+tools/desk_atlas/*.html
+!tools/desk_atlas/template.html
+*.nc
+*.nc4
+*.h5
+*.hdf
+*.tif
+*.tiff
+*.zip
+*.parquet
+*.grib
+*.grb
+
+# --- Credentials ---
+.env
+.netrc
+.cdsapirc
+*.key
+*credentials*
+*secret*
+
+# --- Python / Jupyter ---
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+*.egg-info/
+
+# --- OS, Office and Drive clutter ---
+desktop.ini
+.DS_Store
+Thumbs.db
+~$*
+*.lock
+
+# --- Claude Code personal settings ---
+.claude/settings.local.json

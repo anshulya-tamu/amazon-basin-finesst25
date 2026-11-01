@@ -1,0 +1,27 @@
+name: finesst
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy
+  - pandas
+  - scipy
+  - statsmodels
+  - xarray
+  - netcdf4
+  - dask
+  - geopandas
+  - pyogrio
+  - shapely>=2
+  - rasterio
+  - rioxarray
+  - matplotlib
+  - tqdm
+  - pillow
+  - pymupdf
+  - jupyterlab
+  - pip
+  - pip:
+      - cdsapi           # ERA5-Land (Copernicus CDS)
+      - earthaccess      # NASA Earthdata: SWOT, VIIRS, ECOSTRESS
+      - earthengine-api  # Landsat Collection 2 surface temperature, JRC water

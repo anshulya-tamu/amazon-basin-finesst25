@@ -1,0 +1,4 @@
+# Normalise line endings so scripts written on Windows run on the Linux server
+* text=auto eol=lf
+*.png binary
+*.pdf binary
